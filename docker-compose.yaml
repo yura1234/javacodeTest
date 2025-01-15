@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+
+  api:
+    container_name: api
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    develop:
+      watch:
+        - action: sync
+          path: ./apiconfig.env
+          target: /app/apiconfig.env
+        - action: rebuild
+          path: ./apiconfig.env
+    ports:
+      - 8000:8000
+    command: python /app/main.py
+
+  postgres:
+    image: postgres:latest
+    container_name: pg_jcode_test2
+    environment:
+      - POSTGRES_DB=pg_data_test
+      - POSTGRES_USER=pgsdbuser
+      - POSTGRES_PASSWORD=pgsdbuser123456
+      - PG_JCODE_DATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pg_jcode_data:/var/lib/postgresql/data
+      - ./config/:/etc/postgresql/
+    develop:
+      watch:
+        - action: sync
+          path: ./config/postgresql.conf
+          target: /etc/postgresql/postgresql.conf
+        - action: rebuild
+          path: ./config/postgresql.conf
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+
+volumes:
+  pg_jcode_data:
+  config:
